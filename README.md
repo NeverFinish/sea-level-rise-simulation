@@ -78,11 +78,11 @@ If the online link is unavailable, run the project locally with these steps:
 
 \## Author Information
 
-\- Author: \[Your Full Name]
+\- Author: \Huang Yifie
 
-\- Student ID: \[Your Student ID]
+\- Student ID: \3036613401
 
-\- Submission Date: \[YYYY-MM-DD]
+\- Submission Date: \2025/11/12
 
 
 
