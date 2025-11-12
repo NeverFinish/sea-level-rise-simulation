@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sea Level Rise Simulation</title>
+    <!-- 引入Leaflet地图库（CSS+JS） -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- 自定义样式（按钮+地图大小） -->
+    <style>
+        #map { height: 90vh; width: 100%; } /* 地图占满屏幕90%高度 */
+        .control-panel { 
+            position: fixed; top: 20px; left: 20px; z-index: 1000; 
+            background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .control-panel button { 
+            padding: 8px 15px; margin: 5px 0; width: 120px; 
+            border: none; border-radius: 4px; cursor: pointer;
+        }
+        /* 区分不同功能的按钮样式 */
+        .flood-btn { background: #007bff; color: white; }
+        .flood-btn:hover { background: #0056b3; }
+        .feature-btn { background: #28a745; color: white; }
+        .feature-btn:hover { background: #218838; }
+    </style>
+</head>
+<body>
+    <!-- 地图容器 -->
+    <div id="map"></div>
+    <!-- 交互按钮面板（新增河流、湖泊、城市控制按钮） -->
+    <div class="control-panel">
+        <p style="margin:0 0 10px 0; font-weight:bold;">Sea Rise</p>
+        <button class="flood-btn" onclick="showFlood(0)">0m (Original)</button>
+        <button class="flood-btn" onclick="showFlood(5)">+5m Flooded</button>
+        <button class="flood-btn" onclick="showFlood(50)">+50m Flooded</button>
+        <button class="flood-btn" onclick="showFlood(75)">+75m Flooded</button>
+        
+        <p style="margin:15px 0 10px 0; font-weight:bold;">GeoFeature</p>
+        <button class="feature-btn" onclick="toggleFeature('river')">Rivers</button>
+        <button class="feature-btn" onclick="toggleFeature('lake')">Lakes</button>
+        <button class="feature-btn" onclick="toggleFeature('cities')">EAsia Cities</button>
+    </div>
+
+    <script>
+        // 1. 初始化地图（中心设为东亚区域：35°N, 105°E，缩放级别5）
+        const map = L.map('map').setView([35, 105], 5); 
+
+        // 2. 加载地形底图
+        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data: &copy; OpenTopoMap contributors'
+        }).addTo(map);
+
+        // 3. 先定义空图层对象（关键：确保函数调用时变量已存在）
+        let floodLayers = { 0: null, 5: null, 50: null, 75: null };
+        let featureLayers = { river: null, lake: null, cities: null };
+
+        // 4. 定义所有函数（放在图层加载之前，避免函数未定义）
+        function showFlood(height) {
+            Object.values(floodLayers).forEach(layer => {
+                if (layer) map.removeLayer(layer);
+            });
+            if (height > 0 && floodLayers[height]) {
+                floodLayers[height].addTo(map);
+            }
+        }
+
+        function toggleFeature(type) {
+            const layer = featureLayers[type];
+            if (layer) { // 确保图层已加载完成
+                if (map.hasLayer(layer)) {
+                    map.removeLayer(layer);
+                } else {
+                    map.addLayer(layer);
+                }
+            }
+        }
+
+        // 5. 用fetch加载JSON（浏览器原生支持，无兼容性问题）
+        // 加载5m淹没数据
+        fetch('./sealevel_5m_JSON.geojson')
+            .then(response => {
+                if (!response.ok) throw new Error('5m数据加载失败');
+                return response.json();
+            })
+            .then(data => {
+                floodLayers[5] = L.geoJSON(data, { 
+                    style: { fillColor: '#4169E1', fillOpacity: 0.5, weight: 0 } 
+                });
+            })
+            .catch(err => console.error(err));
+
+        // 加载50m淹没数据
+        fetch('./sealevel_50m_JSON.geojson')
+            .then(response => response.json())
+            .then(data => {
+                floodLayers[50] = L.geoJSON(data, { 
+                    style: { fillColor: '#191970', fillOpacity: 0.6, weight: 0 } 
+                });
+            });
+
+        // 加载75m淹没数据
+        fetch('./sealevel_75m_JSON.geojson')
+            .then(response => response.json())
+            .then(data => {
+                floodLayers[75] = L.geoJSON(data, { 
+                    style: { fillColor: '#00008B', fillOpacity: 0.7, weight: 0 } 
+                });
+            });
+
+        // 加载河流数据
+        fetch('./rivers_JSON.json')
+            .then(response => response.json())
+            .then(data => {
+                featureLayers.river = L.geoJSON(data, { 
+                    style: { color: '#1E90FF', weight: 2, opacity: 0.8 } 
+                });
+            });
+
+        // 加载湖泊数据
+        fetch('./lakes_JSON.json')
+            .then(response => response.json())
+            .then(data => {
+                featureLayers.lake = L.geoJSON(data, { 
+                    style: { fillColor: '#87CEFA', fillOpacity: 0.4, color: '#1E90FF', weight: 1 } 
+                });
+            });
+
+        // 加载东亚城市数据
+        fetch('./EAsia_cities_JSON.json')
+            .then(response => response.json())
+            .then(data => {
+                featureLayers.cities = L.geoJSON(data, { 
+                    pointToLayer: (feature, latlng) => {
+                        return L.circleMarker(latlng, {
+                            radius: 5,
+                            fillColor: '#DC143C',
+                            fillOpacity: 0.8,
+                            color: '#000',
+                            weight: 1
+                        }).bindPopup(`<b>${feature.properties.name || 'Unknown City'}</b>`); // 兼容无name属性的情况
+                    }
+                });
+            });
+    </script>
+</body>
+</html>
