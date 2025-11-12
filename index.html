@@ -7,9 +7,9 @@
     <!-- 引入Leaflet地图库（CSS+JS） -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- 自定义样式（按钮+地图大小） -->
+    <!-- 自定义样式 -->
     <style>
-        #map { height: 90vh; width: 100%; } /* 地图占满屏幕90%高度 */
+        #map { height: 90vh; width: 100%; }
         .control-panel { 
             position: fixed; top: 20px; left: 20px; z-index: 1000; 
             background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
@@ -18,7 +18,6 @@
             padding: 8px 15px; margin: 5px 0; width: 120px; 
             border: none; border-radius: 4px; cursor: pointer;
         }
-        /* 区分不同功能的按钮样式 */
         .flood-btn { background: #007bff; color: white; }
         .flood-btn:hover { background: #0056b3; }
         .feature-btn { background: #28a745; color: white; }
@@ -26,9 +25,7 @@
     </style>
 </head>
 <body>
-    <!-- 地图容器 -->
     <div id="map"></div>
-    <!-- 交互按钮面板（新增河流、湖泊、城市控制按钮） -->
     <div class="control-panel">
         <p style="margin:0 0 10px 0; font-weight:bold;">Sea Rise</p>
         <button class="flood-btn" onclick="showFlood(0)">0m (Original)</button>
@@ -43,19 +40,19 @@
     </div>
 
     <script>
-        // 1. 初始化地图（中心设为东亚区域：35°N, 105°E，缩放级别5）
-        const map = L.map('map').setView([35, 105], 5); 
+        // 1. 初始化地图：中心点设为亚洲中心（40°N, 85°E），缩放级别3（覆盖整个亚洲）
+        const map = L.map('map').setView([40, 85], 3); 
 
         // 2. 加载地形底图
         L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
             attribution: 'Map data: &copy; OpenTopoMap contributors'
         }).addTo(map);
 
-        // 3. 先定义空图层对象（关键：确保函数调用时变量已存在）
+        // 3. 定义空图层对象
         let floodLayers = { 0: null, 5: null, 50: null, 75: null };
         let featureLayers = { river: null, lake: null, cities: null };
 
-        // 4. 定义所有函数（放在图层加载之前，避免函数未定义）
+        // 4. 定义切换函数
         function showFlood(height) {
             Object.values(floodLayers).forEach(layer => {
                 if (layer) map.removeLayer(layer);
@@ -67,7 +64,7 @@
 
         function toggleFeature(type) {
             const layer = featureLayers[type];
-            if (layer) { // 确保图层已加载完成
+            if (layer) {
                 if (map.hasLayer(layer)) {
                     map.removeLayer(layer);
                 } else {
@@ -76,21 +73,22 @@
             }
         }
 
-        // 5. 用fetch加载JSON（浏览器原生支持，无兼容性问题）
-        // 加载5m淹没数据
+        // 5. 加载数据（所有文件统一使用.geojson后缀，与仓库文件匹配）
+        // 5m淹没图层（亮蓝色，更明显）
         fetch('./sealevel_5m_JSON.geojson')
-            .then(response => {
-                if (!response.ok) throw new Error('5m数据加载失败');
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 floodLayers[5] = L.geoJSON(data, { 
-                    style: { fillColor: '#4169E1', fillOpacity: 0.5, weight: 0 } 
+                    style: { 
+                        fillColor: '#00BFFF', // 亮蓝色
+                        fillOpacity: 0.7,    // 高透明度
+                        weight: 1,           // 细边框
+                        color: '#009ACD'     // 边框色
+                    } 
                 });
-            })
-            .catch(err => console.error(err));
+            });
 
-        // 加载50m淹没数据
+        // 50m淹没图层
         fetch('./sealevel_50m_JSON.geojson')
             .then(response => response.json())
             .then(data => {
@@ -99,7 +97,7 @@
                 });
             });
 
-        // 加载75m淹没数据
+        // 75m淹没图层
         fetch('./sealevel_75m_JSON.geojson')
             .then(response => response.json())
             .then(data => {
@@ -108,8 +106,8 @@
                 });
             });
 
-        // 加载河流数据
-        fetch('./rivers_JSON.json')
+        // 河流图层（修正后缀为.geojson）
+        fetch('./rivers_JSON.geojson')
             .then(response => response.json())
             .then(data => {
                 featureLayers.river = L.geoJSON(data, { 
@@ -117,8 +115,8 @@
                 });
             });
 
-        // 加载湖泊数据
-        fetch('./lakes_JSON.json')
+        // 湖泊图层（修正后缀为.geojson）
+        fetch('./lakes_JSON.geojson')
             .then(response => response.json())
             .then(data => {
                 featureLayers.lake = L.geoJSON(data, { 
@@ -126,8 +124,8 @@
                 });
             });
 
-        // 加载东亚城市数据
-        fetch('./EAsia_cities_JSON.json')
+        // 东亚城市图层（修正后缀为.geojson）
+        fetch('./EAsia_cities_JSON.geojson')
             .then(response => response.json())
             .then(data => {
                 featureLayers.cities = L.geoJSON(data, { 
@@ -138,7 +136,7 @@
                             fillOpacity: 0.8,
                             color: '#000',
                             weight: 1
-                        }).bindPopup(`<b>${feature.properties.name || 'Unknown City'}</b>`); // 兼容无name属性的情况
+                        }).bindPopup(`<b>${feature.properties.name || 'Unknown City'}</b>`);
                     }
                 });
             });
